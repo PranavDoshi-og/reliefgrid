@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ReliefGrid — Autonomous Flood Relief Logistics Coordinator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <style>
+    @keyframes pulse-slow { 0%, 100% { opacity: 0.3; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.04); } }
+    .animate-flood { animation: pulse-slow 3s ease-in-out infinite; transform-origin: center; }
+    .route-flow { stroke-dasharray: 8 6; animation: dash 1.5s linear infinite; }
+    @keyframes dash { to { stroke-dashoffset: -14; } }
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #090d16; }
+    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #334155; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans h-screen flex flex-col overflow-hidden select-none">
+
+  <!-- Header -->
+  <header class="h-14 border-b border-slate-800 bg-slate-900/80 backdrop-blur px-5 flex items-center justify-between z-20">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400 font-bold text-lg">
+        <i class="fa-solid fa-truck-droplet text-sm"></i>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="font-bold tracking-tight text-white text-base">ReliefGrid</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-400 border border-cyan-800 font-mono font-medium">AUTONOMOUS DISPATCH</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-800 font-mono">TRACK 2: CLIMATE & SUPPLY RESILIENCE</span>
+        </div>
+      </div>
+    </div>
+    <div class="flex items-center gap-4 text-xs">
+      <div class="flex items-center gap-2 text-slate-400 bg-slate-950/60 px-3 py-1.5 rounded-md border border-slate-800">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+        <span>Network: <strong class="text-slate-200">Central Kerala Corridor</strong></span>
+      </div>
+      <a href="https://github.com/PranavDoshi-og/reliefgrid" target="_blank" class="flex items-center gap-1.5 text-slate-400 hover:text-white transition bg-slate-800/80 hover:bg-slate-700 px-3 py-1.5 rounded-md border border-slate-700">
+        <i class="fa-brands fa-github text-sm"></i>
+        <span>GitHub</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- Main Body -->
+  <div class="flex-1 flex overflow-hidden">
+    
+    <!-- Left Sidebar: Controls & Logistics -->
+    <aside class="w-[28rem] flex flex-col border-r border-slate-800 bg-slate-900/40 backdrop-blur overflow-hidden z-10">
+      
+      <!-- Top Metrics Dashboard -->
+      <div class="p-4 border-b border-slate-800 bg-slate-950/40">
+        <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2 flex items-center justify-between">
+          <span>Operational Metrics</span>
+          <span id="planner-mode" class="text-cyan-400 font-mono lowercase">agent: priority-loop</span>
+        </div>
+        <div class="grid grid-cols-4 gap-2">
+          <div class="rounded-lg border border-slate-800 bg-slate-900/60 p-2.5 text-center">
+            <div id="stat-served" class="text-xl font-bold text-emerald-400">0</div>
+            <div class="text-[9px] uppercase tracking-wider text-slate-400 mt-0.5 font-medium">People Served</div>
+          </div>
+          <div class="rounded-lg border border-slate-800 bg-slate-900/60 p-2.5 text-center">
+            <div id="stat-units" class="text-xl font-bold text-cyan-400">0</div>
+            <div class="text-[9px] uppercase tracking-wider text-slate-400 mt-0.5 font-medium">Units Sent</div>
+          </div>
+          <div class="rounded-lg border border-slate-800 bg-slate-900/60 p-2.5 text-center">
+            <div id="stat-reroutes" class="text-xl font-bold text-amber-400">0</div>
+            <div class="text-[9px] uppercase tracking-wider text-slate-400 mt-0.5 font-medium">Reroutes</div>
+          </div>
+          <div class="rounded-lg border border-slate-800 bg-slate-900/60 p-2.5 text-center">
+            <div id="stat-blocked" class="text-xl font-bold text-rose-500">0</div>
+            <div class="text-[9px] uppercase tracking-wider text-slate-400 mt-0.5 font-medium">Roads Cut</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Panel -->
+      <div class="p-4 border-b border-slate-800 flex flex-col gap-3 bg-slate-900/20">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Flood Scenarios</span>
+          <button id="btn-reset" class="text-xs text-slate-400 hover:text-white transition flex items-center gap-1">
+            <i class="fa-solid fa-rotate-left"></i> Reset
+          </button>
+        </div>
+        
+        <div class="grid grid-cols-3 gap-2">
+          <button data-scenario="cascade" class="btn-scenario rounded-md bg-slate-800/90 hover:bg-slate-700 py-1.5 px-2 text-xs font-medium border border-slate-700 hover:border-slate-600 transition text-center truncate">
+            Cascade Surge
+          </button>
+          <button data-scenario="periyar-surge" class="btn-scenario rounded-md bg-slate-800/90 hover:bg-slate-700 py-1.5 px-2 text-xs font-medium border border-slate-700 hover:border-slate-600 transition text-center truncate">
+            Periyar Flood
+          </button>
+          <button data-scenario="kuttanad-flood" class="btn-scenario rounded-md bg-slate-800/90 hover:bg-slate-700 py-1.5 px-2 text-xs font-medium border border-slate-700 hover:border-slate-600 transition text-center truncate">
+            Kuttanad Inflow
+          </button>
+        </div>
+
+        <div class="flex gap-2">
+          <button id="btn-flood-mode" class="flex-1 py-2 px-3 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-xs font-medium transition flex items-center justify-center gap-2">
+            <i class="fa-solid fa-circle-exclamation text-amber-400"></i>
+            <span id="flood-mode-label">+ Add Flood Zone</span>
+          </button>
+          <button id="btn-dispatch" class="flex-1 py-2 px-3 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2">
+            <i class="fa-solid fa-paper-plane"></i>
+            <span>Plan & Dispatch</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab Selection for Orders / Trace -->
+      <div class="flex border-b border-slate-800 text-xs font-semibold">
+        <button id="tab-orders" class="flex-1 py-2.5 text-center text-cyan-400 border-b-2 border-cyan-400 bg-slate-900/60">
+          Dispatched Orders (<span id="orders-count">0</span>)
+        </button>
+        <button id="tab-trace" class="flex-1 py-2.5 text-center text-slate-400 hover:text-slate-200 border-b-2 border-transparent">
+          Agent Thought Trace
+        </button>
+      </div>
+
+      <!-- Scrollable List Area -->
+      <div class="flex-1 overflow-y-auto p-4 space-y-3" id="tab-content">
+        <!-- Injected dynamically -->
+      </div>
+
+    </aside>
+
+    <!-- Right Viewport: Interactive SVG Tactical Map -->
+    <main class="flex-1 relative bg-slate-950 overflow-hidden flex flex-col">
+      
+      <!-- Tactical Map Overlay Instructions -->
+      <div class="absolute top-4 left-4 z-10 bg-slate-900/80 backdrop-blur border border-slate-800 p-3 rounded-lg max-w-sm text-xs shadow-xl pointer-events-none">
+        <div class="font-semibold text-slate-200 flex items-center gap-2">
+          <i class="fa-solid fa-map-location-dot text-cyan-400"></i>
+          <span>Kerala Relief Route Network</span>
+        </div>
+        <p class="text-slate-400 mt-1 leading-relaxed">
+          Click <strong>"+ Add Flood Zone"</strong> and tap anywhere on the map to submerge roads. The autonomous agent computes Dijkstra reroutes and priority cargo loads in real-time.
+        </p>
+        <div class="mt-2.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-400">
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span> Warehouse</span>
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span> Relief Camp</span>
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-0.5 bg-rose-500 border border-rose-500"></span> Flooded Cut-off</span>
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-1 bg-amber-400"></span> Rerouted Convoy</span>
+        </div>
+      </div>
+
+      <!-- Flood Mode Active Banner -->
+      <div id="flood-alert-banner" class="hidden absolute top-4 right-4 z-10 bg-amber-500/90 text-slate-950 font-bold px-4 py-2 rounded-lg text-xs shadow-lg animate-pulse flex items-center gap-2">
+        <i class="fa-solid fa-crosshairs text-sm"></i>
+        <span>CLICK ANYWHERE ON THE MAP TO DROP A FLOOD ZONE</span>
+      </div>
+
+      <!-- SVG Map Canvas -->
+      <div class="flex-1 relative w-full h-full cursor-default" id="map-container">
+        <svg id="svg-map" class="w-full h-full" viewBox="0 0 850 950" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <!-- Water grid pattern -->
+            <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5" opacity="0.4"/>
+            </pattern>
+            <!-- Glow filter -->
+            <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feComposite in="SourceGraphic" in2="blur" operator="over" />
+            </filter>
+            <!-- Flood zone gradient -->
+            <radialGradient id="floodGrad">
+              <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.35"/>
+              <stop offset="70%" stop-color="#0284c7" stop-opacity="0.2"/>
+              <stop offset="100%" stop-color="#0369a1" stop-opacity="0.0"/>
+            </radialGradient>
+          </defs>
+
+          <!-- Background grid -->
+          <rect width="100%" height="100%" fill="#050811"/>
+          <rect width="100%" height="100%" fill="url(#grid)"/>
+
+          <!-- Coastline / Water Hint (Arabian Sea to the left) -->
+          <path d="M 120 0 Q 140 300, 180 600 T 260 950 L 0 950 L 0 0 Z" fill="#0b1329" opacity="0.7"/>
+          <text x="35" y="480" fill="#1e293b" font-size="16" font-family="monospace" letter-spacing="4" transform="rotate(-80 35 480)">ARABIAN SEA</text>
+
+          <!-- Group: Edges (Roads) -->
+          <g id="layer-edges"></g>
+
+          <!-- Group: Flood Circles -->
+          <g id="layer-floods"></g>
+
+          <!-- Group: Active Convoy Routes -->
+          <g id="layer-routes"></g>
+
+          <!-- Group: Nodes (Depots, Shelters, Junctions) -->
+          <g id="layer-nodes"></g>
+        </svg>
+
+        <!-- Tooltip overlay -->
+        <div id="map-tooltip" class="absolute hidden bg-slate-900 border border-slate-700 text-slate-200 text-xs px-2.5 py-1.5 rounded shadow-xl pointer-events-none z-30 max-w-xs"></div>
+      </div>
+
+    </main>
+
+  </div>
+
+  <script>
+    // Complete Central Kerala network model
+    const WORLD = {
+      nodes: {
+        W1: { name: "Kochi Central Warehouse", lat: 9.9312, lon: 76.2673, type: "warehouse" },
+        W2: { name: "Thrissur Relief Depot", lat: 10.5276, lon: 76.2144, type: "warehouse" },
+        W3: { name: "Kottayam Depot", lat: 9.5916, lon: 76.5222, type: "warehouse" },
+        J1: { name: "Aluva", lat: 10.1004, lon: 76.3570, type: "junction" },
+        J2: { name: "Angamaly", lat: 10.1960, lon: 76.3860, type: "junction" },
+        J3: { name: "Cherthala", lat: 9.6844, lon: 76.3358, type: "junction" },
+        J4: { name: "Alappuzha", lat: 9.4981, lon: 76.3388, type: "junction" },
+        J5: { name: "Vaikom", lat: 9.7490, lon: 76.3960, type: "junction" },
+        J6: { name: "Edappally", lat: 10.0261, lon: 76.3084, type: "junction" },
+        S1: { name: "Kuttanad Relief Camp", lat: 9.4000, lon: 76.4000, type: "shelter" },
+        S2: { name: "Chalakudy Camp", lat: 10.3070, lon: 76.3330, type: "shelter" },
+        S3: { name: "North Paravur Camp", lat: 10.1540, lon: 76.2240, type: "shelter" },
+        S4: { name: "Kumarakom Camp", lat: 9.6170, lon: 76.4290, type: "shelter" }
+      },
+      edges: [
+        { a: "W1", b: "J6", road: "NH-66 Edappally" },
+        { a: "J6", b: "J1", road: "NH-544 Aluva Rd" },
+        { a: "J1", b: "J2", road: "NH-544 Angamaly" },
+        { a: "J2", b: "S2", road: "NH-544 Chalakudy" },
+        { a: "W2", b: "S2", road: "NH-544 Thrissur" },
+        { a: "J6", b: "S3", road: "NH-66 Paravur" },
+        { a: "S3", b: "J2", road: "SH-15 Paravur-Angamaly" },
+        { a: "W1", b: "J3", road: "NH-66 South" },
+        { a: "J3", b: "J4", road: "NH-66 Coastal" },
+        { a: "J4", b: "S1", road: "Kuttanad Rd" },
+        { a: "J3", b: "J5", road: "Cherthala-Vaikom Rd" },
+        { a: "W1", b: "J5", road: "Vaikom Rd" },
+        { a: "J5", b: "S4", road: "Vaikom-Kumarakom Rd" },
+        { a: "W3", b: "S4", road: "MC Road" },
+        { a: "W3", b: "J5", road: "Kottayam-Vaikom Rd" },
+        { a: "W3", b: "J4", road: "AC Road" }
+      ],
+      warehouses: {
+        W1: { stock: { water: 600, food: 500, medicine: 120 } },
+        W2: { stock: { water: 400, food: 400, medicine: 60 } },
+        W3: { stock: { water: 300, food: 350, medicine: 80 } }
+      },
+      shelters: {
+        S1: { people: 1800, priority: 5, needs: { water: 400, food: 300, medicine: 80 } },
+        S2: { people: 1200, priority: 3, needs: { water: 250, food: 200, medicine: 40 } },
+        S3: { people: 900, priority: 2, needs: { water: 180, food: 150, medicine: 30 } },
+        S4: { people: 1500, priority: 4, needs: { water: 300, food: 250, medicine: 60 } }
+      },
+      vehicles: [
+        { id: "V1", depot: "W1", capacity: 400 },
+        { id: "V2", depot: "W1", capacity: 300 },
+        { id: "V3", depot: "W2", capacity: 350 },
+        { id: "V4", depot: "W3", capacity: 300 },
+        { id: "V5", depot: "W3", capacity: 250 }
+      ],
+      scenarios: {
+        "periyar-surge": [{ name: "Periyar surge (Aluva)", lat: 10.1004, lon: 76.357, radius_km: 5 }],
+        "kuttanad-flood": [{ name: "Kuttanad flooding", lat: 9.59, lon: 76.34, radius_km: 6 }],
+        "cascade": [
+          { name: "Periyar surge (Aluva)", lat: 10.1004, lon: 76.357, radius_km: 5 },
+          { name: "Kuttanad flooding", lat: 9.59, lon: 76.34, radius_km: 6 }
+        ]
+      }
+    };
+
+    // Haversine distance in km
+    function hav(lat1, lon1, lat2, lon2) {
+      const R = 6371.0;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
+      return 2 * R * Math.asin(Math.sqrt(a));
+    }
+
+    // Geographic bounding box for SVG projection
+    const GEO = { minLat: 9.30, maxLat: 10.65, minLon: 76.10, maxLon: 76.65 };
+    const SVG_W = 850, SVG_H = 950;
+
+    function project(lat, lon) {
+      const x = ((lon - GEO.minLon) / (GEO.maxLon - GEO.minLon)) * (SVG_W - 160) + 100;
+      const y = ((GEO.maxLat - lat) / (GEO.maxLat - GEO.minLat)) * (SVG_H - 140) + 70;
+      return [x, y];
+    }
+
+    function unproject(x, y) {
+      const lon = ((x - 100) / (SVG_W - 160)) * (GEO.maxLon - GEO.minLon) + GEO.minLon;
+      const lat = GEO.maxLat - ((y - 70) / (SVG_H - 140)) * (GEO.maxLat - GEO.minLat);
+      return [lat, lon];
+    }
+
+    // State
+    let zones = [];
+    let orders = [];
+    let trace = [];
+    let floodMode = false;
+    let activeTab = 'orders';
+
+    // Check if edge is cut by any flood circle
+    function isEdgeBlocked(n1, n2) {
+      for (let z of zones) {
+        for (let i = 0; i <= 24; i++) {
+          const t = i / 24;
+          const lat = n1.lat + (n2.lat - n1.lat) * t;
+          const lon = n1.lon + (n2.lon - n1.lon) * t;
+          if (hav(lat, lon, z.lat, z.lon) <= z.radius_km) return true;
+        }
+      }
+      return false;
+    }
+
+    // Dijkstra safe router
+    function getSafeRoute(src, dst) {
+      const dist = {}, prev = {};
+      const Q = new Set(Object.keys(WORLD.nodes));
+      for (let n in WORLD.nodes) dist[n] = Infinity;
+      dist[src] = 0;
+
+      while (Q.size > 0) {
+        let u = null;
+        for (let n of Q) {
+          if (u === null || dist[n] < dist[u]) u = n;
+        }
+        if (dist[u] === Infinity || u === dst) break;
+        Q.delete(u);
+
+        for (let e of WORLD.edges) {
+          if (e.a === u || e.b === u) {
+            const v = e.a === u ? e.b : e.a;
+            if (!Q.has(v)) continue;
+            const n1 = WORLD.nodes[u], n2 = WORLD.nodes[v];
+            if (isEdgeBlocked(n1, n2)) continue; // Blocked road
+            const d = hav(n1.lat, n1.lon, n2.lat, n2.lon);
+            const alt = dist[u] + d;
+            if (alt < dist[v]) {
+              dist[v] = alt;
+              prev[v] = { node: u, road: e.road, km: d };
+            }
+          }
+        }
+      }
+
+      if (dist[dst] === Infinity) return { reachable: false, reason: "Route cut by flooding" };
+
+      const path = [];
+      let curr = dst;
+      while (curr !== src) {
+        path.unshift(curr);
+        curr = prev[curr].node;
+      }
+      path.unshift(src);
+
+      // Base non-flooded distance
+      const baseDist = getBaseDistance(src, dst);
+      const isRerouted = Math.abs(dist[dst] - baseDist) > 0.5;
+
+      return {
+        reachable: true,
+        path: path,
+        distance_km: Math.round(dist[dst] * 10) / 10,
+        rerouted: isRerouted,
+        detour_km: isRerouted ? Math.round((dist[dst] - baseDist) * 10) / 10 : 0
+      };
+    }
+
+    function getBaseDistance(src, dst) {
+      const dist = {};
+      const Q = new Set(Object.keys(WORLD.nodes));
+      for (let n in WORLD.nodes) dist[n] = Infinity;
+      dist[src] = 0;
+      while (Q.size > 0) {
+        let u = null;
+        for (let n of Q) if (u === null || dist[n] < dist[u]) u = n;
+        if (dist[u] === Infinity || u === dst) break;
+        Q.delete(u);
+        for (let e of WORLD.edges) {
+          if (e.a === u || e.b === u) {
+            const v = e.a === u ? e.b : e.a;
+            if (!Q.has(v)) continue;
+            const d = hav(WORLD.nodes[u].lat, WORLD.nodes[u].lon, WORLD.nodes[v].lat, WORLD.nodes[v].lon);
+            if (dist[u] + d < dist[v]) dist[v] = dist[u] + d;
+          }
+        }
+      }
+      return dist[dst];
+    }
+
+    // AI Dispatch Planner
+    function runDispatchPlanner() {
+      orders = [];
+      trace = [];
+      const usedVehicles = new Set();
+      const currentStock = JSON.parse(JSON.stringify(WORLD.warehouses));
+      const shelterNeeds = JSON.parse(JSON.stringify(WORLD.shelters));
+
+      trace.push({ type: "thought", text: "Evaluating central Kerala flood status, shelter priorities (medicine > water > food), and passable corridors..." });
+
+      // Sort shelters by descending priority (Priority 5 = Kuttanad, etc.)
+      const shelterOrder = Object.keys(WORLD.shelters).sort((a, b) => WORLD.shelters[b].priority - WORLD.shelters[a].priority);
+
+      let progress = true;
+      while (progress) {
+        progress = false;
+        for (let sid of shelterOrder) {
+          const s = shelterNeeds[sid];
+          const totalNeed = s.needs.medicine + s.needs.water + s.needs.food;
+          if (totalNeed <= 0) continue;
+
+          let bestMatch = null;
+          for (let v of WORLD.vehicles) {
+            if (usedVehicles.has(v.id)) continue;
+            for (let wid in currentStock) {
+              const wh = currentStock[wid];
+              const hasSupplies = (wh.stock.medicine > 0 && s.needs.medicine > 0) ||
+                                  (wh.stock.water > 0 && s.needs.water > 0) ||
+                                  (wh.stock.food > 0 && s.needs.food > 0);
+              if (!hasSupplies) continue;
+
+              const route = getSafeRoute(wid, sid);
+              if (!route.reachable) continue;
+
+              // Safe route check
+              trace.push({
+                type: "tool",
+                name: "get_safe_route",
+                input: { from: wid, to: sid },
+                output: { reachable: true, distance_km: route.distance_km, rerouted: route.rerouted, detour_km: route.detour_km }
+              });
+
+              const totalDist = route.distance_km;
+              if (!bestMatch || totalDist < bestMatch.dist) {
+                bestMatch = { dist: totalDist, vehicle: v, wid: wid, route: route };
+              }
+            }
+          }
+
+          if (!bestMatch) continue;
+
+          const { vehicle: v, wid, route } = bestMatch;
+          let cap = v.capacity;
+          const assignedItems = {};
+
+          // Allocate medicine first, then water, then food
+          for (let item of ["medicine", "water", "food"]) {
+            const need = s.needs[item];
+            const stock = currentStock[wid].stock[item];
+            const q = Math.min(need, stock, cap);
+            if (q > 0) {
+              assignedItems[item] = q;
+              cap -= q;
+              s.needs[item] -= q;
+              currentStock[wid].stock[item] -= q;
+            }
+          }
+
+          if (Object.keys(assignedItems).length > 0) {
+            usedVehicles.add(v.id);
+            const reason = `Priority-${WORLD.shelters[sid].priority} camp served from ${WORLD.nodes[wid].name}` +
+              (route.rerouted ? ` · REROUTED +${route.detour_km} km to bypass flood` : ` · Direct unflooded route.`);
+
+            trace.push({
+              type: "tool",
+              name: "assign_vehicle",
+              input: { vehicle: v.id, from: wid, to: sid, items: assignedItems },
+              output: { ok: true, reason }
+            });
+
+            orders.push({
+              id: "ORD-" + (orders.length + 1),
+              vehicle: v.id,
+              warehouse: wid,
+              shelter: sid,
+              items: assignedItems,
+              distance_km: route.distance_km,
+              rerouted: route.rerouted,
+              detour_km: route.detour_km,
+              path: route.path,
+              reason: reason
+            });
+            progress = true;
+          }
+        }
+      }
+
+      const totalPeople = [...new Set(orders.map(o => o.shelter))].reduce((acc, sid) => acc + WORLD.shelters[sid].people, 0);
+      trace.push({
+        type: "thought",
+        text: `Dispatch cycle finalized. Reached ${totalPeople} affected citizens across ${orders.length} convoys with zero submerged road crossings.`
+      });
+
+      render();
+    }
+
+    // Render SVG Map and UI
+    const ROUTE_COLORS = ["#22d3ee", "#a78bfa", "#fbbf24", "#34d399", "#f472b6", "#60a5fa"];
+
+    function render() {
+      // 1. Update Metrics
+      const people = new Set(orders.map(o => o.shelter));
+      const served = [...people].reduce((a, id) => a + WORLD.shelters[id].people, 0);
+      const units = orders.reduce((a, o) => a + Object.values(o.items).reduce((x, y) => x + y, 0), 0);
+      const reroutes = orders.filter(o => o.rerouted).length;
+      let blockedCount = 0;
+      for (let e of WORLD.edges) {
+        if (isEdgeBlocked(WORLD.nodes[e.a], WORLD.nodes[e.b])) blockedCount++;
+      }
+
+      document.getElementById('stat-served').textContent = served.toLocaleString();
+      document.getElementById('stat-units').textContent = units.toLocaleString();
+      document.getElementById('stat-reroutes').textContent = reroutes;
+      document.getElementById('stat-blocked').textContent = blockedCount;
+      document.getElementById('orders-count').textContent = orders.length;
+
+      // 2. Render Edges (Roads)
+      const gEdges = document.getElementById('layer-edges');
+      gEdges.innerHTML = '';
+      WORLD.edges.forEach(e => {
+        const n1 = WORLD.nodes[e.a], n2 = WORLD.nodes[e.b];
+        const [x1, y1] = project(n1.lat, n1.lon);
+        const [x2, y2] = project(n2.lat, n2.lon);
+        const blocked = isEdgeBlocked(n1, n2);
+
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", x1);
+        line.setAttribute("y1", y1);
+        line.setAttribute("x2", x2);
+        line.setAttribute("y2", y2);
+        line.setAttribute("stroke", blocked ? "#ef4444" : "#334155");
+        line.setAttribute("stroke-width", blocked ? "3.5" : "2");
+        if (blocked) {
+          line.setAttribute("stroke-dasharray", "6 6");
+        }
+        line.setAttribute("data-road", e.road + (blocked ? " (FLOODED)" : ""));
+        line.classList.add("cursor-pointer", "transition");
+        gEdges.appendChild(line);
+      });
+
+      // 3. Render Flood Zones
+      const gFloods = document.getElementById('layer-floods');
+      gFloods.innerHTML = '';
+      zones.forEach(z => {
+        const [cx, cy] = project(z.lat, z.lon);
+        const [edgeX] = project(z.lat, z.lon + (z.radius_km / 111.0));
+        const rSvg = Math.max(25, Math.abs(edgeX - cx) * 2.6);
+
+        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("cx", cx);
+        circle.setAttribute("cy", cy);
+        circle.setAttribute("r", rSvg);
+        circle.setAttribute("fill", "url(#floodGrad)");
+        circle.setAttribute("stroke", "#38bdf8");
+        circle.setAttribute("stroke-width", "1.5");
+        circle.classList.add("animate-flood");
+        gFloods.appendChild(circle);
+
+        const icon = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        icon.setAttribute("x", cx);
+        icon.setAttribute("y", cy + 4);
+        icon.setAttribute("text-anchor", "middle");
+        icon.setAttribute("fill", "#38bdf8");
+        icon.setAttribute("font-size", "11");
+        icon.setAttribute("font-family", "monospace");
+        icon.textContent = "🌊 " + z.name;
+        gFloods.appendChild(icon);
+      });
+
+      // 4. Render Active Routes
+      const gRoutes = document.getElementById('layer-routes');
+      gRoutes.innerHTML = '';
+      orders.forEach((o, idx) => {
+        const color = ROUTE_COLORS[idx % ROUTE_COLORS.length];
+        const points = o.path.map(n => project(WORLD.nodes[n].lat, WORLD.nodes[n].lon).join(",")).join(" ");
+        
+        const polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+        polyline.setAttribute("points", points);
+        polyline.setAttribute("fill", "none");
+        polyline.setAttribute("stroke", color);
+        polyline.setAttribute("stroke-width", "5");
+        polyline.setAttribute("stroke-linecap", "round");
+        polyline.setAttribute("stroke-linejoin", "round");
+        polyline.setAttribute("opacity", "0.85");
+        polyline.classList.add("route-flow");
+        polyline.setAttribute("filter", "url(#glow)");
+        gRoutes.appendChild(polyline);
+      });
+
+      // 5. Render Nodes (Depots & Shelters)
+      const gNodes = document.getElementById('layer-nodes');
+      gNodes.innerHTML = '';
+      for (let id in WORLD.nodes) {
+        const n = WORLD.nodes[id];
+        const [cx, cy] = project(n.lat, n.lon);
+        const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        group.setAttribute("transform", `translate(${cx}, ${cy})`);
+        group.classList.add("cursor-pointer");
+
+        if (n.type === "warehouse") {
+          const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+          rect.setAttribute("x", -9);
+          rect.setAttribute("y", -9);
+          rect.setAttribute("width", 18);
+          rect.setAttribute("height", 18);
+          rect.setAttribute("rx", 4);
+          rect.setAttribute("fill", "#0284c7");
+          rect.setAttribute("stroke", "#38bdf8");
+          rect.setAttribute("stroke-width", "2");
+          group.appendChild(rect);
+        } else if (n.type === "shelter") {
+          const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          circle.setAttribute("r", 9);
+          circle.setAttribute("fill", "#e11d48");
+          circle.setAttribute("stroke", "#f43f5e");
+          circle.setAttribute("stroke-width", "2");
+          group.appendChild(circle);
+        } else {
+          const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          circle.setAttribute("r", 4);
+          circle.setAttribute("fill", "#64748b");
+          group.appendChild(circle);
+        }
+
+        // Label
+        const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        label.setAttribute("x", 12);
+        label.setAttribute("y", 4);
+        label.setAttribute("fill", n.type === "junction" ? "#94a3b8" : "#f8fafc");
+        label.setAttribute("font-size", n.type === "junction" ? "10" : "11");
+        label.setAttribute("font-weight", n.type === "junction" ? "normal" : "600");
+        label.textContent = n.name + (WORLD.shelters[id] ? ` (${WORLD.shelters[id].people}p)` : "");
+        group.appendChild(label);
+
+        group.setAttribute("data-info", JSON.stringify({ id, ...n }));
+        gNodes.appendChild(group);
+      }
+
+      // 6. Render Tab Content (Orders or Trace)
+      renderTabContent();
+    }
+
+    function renderTabContent() {
+      const container = document.getElementById('tab-content');
+      if (activeTab === 'orders') {
+        if (orders.length === 0) {
+          container.innerHTML = `
+            <div class="text-center py-12 px-4 border border-dashed border-slate-800 rounded-lg">
+              <i class="fa-solid fa-truck-ramp-box text-3xl text-slate-700 mb-3 block"></i>
+              <div class="text-sm font-semibold text-slate-300">No Orders Dispatched</div>
+              <p class="text-xs text-slate-500 mt-1">Select a scenario or add flood zones, then click "Plan & Dispatch" to run the autonomous coordinator.</p>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = orders.map((o, idx) => {
+          const color = ROUTE_COLORS[idx % ROUTE_COLORS.length];
+          const whName = WORLD.nodes[o.warehouse].name;
+          const shName = WORLD.nodes[o.shelter].name;
+          const itemsStr = Object.entries(o.items).map(([k, v]) => `<strong class="text-slate-200">${v}</strong> ${k}`).join(" · ");
+
+          return `
+            <div class="rounded-lg border border-slate-800 bg-slate-900/70 p-3.5 text-xs shadow" style="border-left: 4px solid ${color};">
+              <div class="flex items-center justify-between font-semibold text-slate-100">
+                <span class="flex items-center gap-1.5">
+                  <span class="px-1.5 py-0.5 rounded bg-slate-800 font-mono text-[10px] text-cyan-400">${o.vehicle}</span>
+                  <span>${whName} → ${shName}</span>
+                </span>
+                <span class="font-mono text-slate-400">${o.distance_km} km</span>
+              </div>
+              <div class="mt-2 text-slate-400 flex items-center justify-between">
+                <span>${itemsStr}</span>
+                ${o.rerouted ? `<span class="text-amber-400 font-medium font-mono text-[11px]"><i class="fa-solid fa-triangle-exclamation"></i> +${o.detour_km} km detour</span>` : ''}
+              </div>
+              <div class="mt-2.5 pt-2 border-t border-slate-800/80 text-[11px] text-slate-300 leading-relaxed">
+                <i class="fa-solid fa-robot text-cyan-400 mr-1"></i> ${o.reason}
+              </div>
+            </div>
+          `;
+        }).join('');
+      } else {
+        // Trace tab
+        if (trace.length === 0) {
+          container.innerHTML = `
+            <div class="text-center py-12 px-4 border border-dashed border-slate-800 rounded-lg">
+              <i class="fa-solid fa-brain text-3xl text-slate-700 mb-3 block"></i>
+              <div class="text-sm font-semibold text-slate-300">No Active Trace</div>
+              <p class="text-xs text-slate-500 mt-1">Run a dispatch to inspect the agent's function-calling loop.</p>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = trace.map((t) => {
+          if (t.type === "thought") {
+            return `
+              <div class="p-3 rounded-lg bg-slate-900/90 border border-slate-800 text-slate-300 text-xs leading-relaxed">
+                <div class="font-bold text-cyan-400 text-[10px] uppercase font-mono mb-1 flex items-center gap-1.5">
+                  <i class="fa-solid fa-lightbulb"></i> Agent Thought
+                </div>
+                ${t.text}
+              </div>
+            `;
+          } else {
+            return `
+              <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800 font-mono text-[11px]">
+                <div class="text-cyan-400 font-semibold flex items-center justify-between">
+                  <span>${t.name}()</span>
+                  <span class="text-[10px] text-emerald-400 uppercase">validated</span>
+                </div>
+                <div class="text-slate-400 mt-1 truncate">in: ${JSON.stringify(t.input)}</div>
+                <div class="text-slate-500 mt-0.5 truncate">out: ${JSON.stringify(t.output)}</div>
+              </div>
+            `;
+          }
+        }).join('');
+      }
+    }
+
+    // Event Listeners
+    document.getElementById('btn-dispatch').addEventListener('click', () => {
+      runDispatchPlanner();
+    });
+
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      zones = [];
+      orders = [];
+      trace = [];
+      render();
+    });
+
+    document.querySelectorAll('.btn-scenario').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const scName = btn.getAttribute('data-scenario');
+        zones = JSON.parse(JSON.stringify(WORLD.scenarios[scName] || []));
+        orders = [];
+        trace = [];
+        render();
+      });
+    });
+
+    const floodBtn = document.getElementById('btn-flood-mode');
+    const floodBanner = document.getElementById('flood-alert-banner');
+    floodBtn.addEventListener('click', () => {
+      floodMode = !floodMode;
+      floodBtn.classList.toggle('bg-amber-500', floodMode);
+      floodBtn.classList.toggle('text-slate-950', floodMode);
+      floodBanner.classList.toggle('hidden', !floodMode);
+      document.getElementById('map-container').style.cursor = floodMode ? 'crosshair' : 'default';
+      document.getElementById('flood-mode-label').textContent = floodMode ? "Click Map..." : "+ Add Flood Zone";
+    });
+
+    document.getElementById('svg-map').addEventListener('click', (e) => {
+      if (!floodMode) return;
+      const rect = e.currentTarget.getBoundingClientRect();
+      const clickX = ((e.clientX - rect.left) / rect.width) * SVG_W;
+      const clickY = ((e.clientY - rect.top) / rect.height) * SVG_H;
+      const [lat, lon] = unproject(clickX, clickY);
+
+      zones.push({
+        name: `Zone #${zones.length + 1}`,
+        lat: Math.round(lat * 1000) / 1000,
+        lon: Math.round(lon * 1000) / 1000,
+        radius_km: 5.5
+      });
+
+      floodMode = false;
+      floodBtn.classList.remove('bg-amber-500', 'text-slate-950');
+      floodBanner.classList.add('hidden');
+      document.getElementById('map-container').style.cursor = 'default';
+      document.getElementById('flood-mode-label').textContent = "+ Add Flood Zone";
+      
+      orders = [];
+      trace = [];
+      render();
+    });
+
+    // Tooltip handling
+    const tooltip = document.getElementById('map-tooltip');
+    document.getElementById('svg-map').addEventListener('mousemove', (e) => {
+      const road = e.target.getAttribute('data-road');
+      const info = e.target.closest('[data-info]')?.getAttribute('data-info');
+
+      if (road) {
+        tooltip.textContent = road;
+        tooltip.classList.remove('hidden');
+        tooltip.style.left = (e.clientX + 14) + 'px';
+        tooltip.style.top = (e.clientY + 14) + 'px';
+      } else if (info) {
+        const d = JSON.parse(info);
+        tooltip.innerHTML = `<strong>${d.name}</strong><br><span class="text-slate-400 capitalize">${d.type}</span>`;
+        tooltip.classList.remove('hidden');
+        tooltip.style.left = (e.clientX + 14) + 'px';
+        tooltip.style.top = (e.clientY + 14) + 'px';
+      } else {
+        tooltip.classList.add('hidden');
+      }
+    });
+
+    document.getElementById('svg-map').addEventListener('mouseleave', () => {
+      tooltip.classList.add('hidden');
+    });
+
+    // Tab buttons
+    document.getElementById('tab-orders').addEventListener('click', () => {
+      activeTab = 'orders';
+      document.getElementById('tab-orders').className = "flex-1 py-2.5 text-center text-cyan-400 border-b-2 border-cyan-400 bg-slate-900/60";
+      document.getElementById('tab-trace').className = "flex-1 py-2.5 text-center text-slate-400 hover:text-slate-200 border-b-2 border-transparent";
+      renderTabContent();
+    });
+
+    document.getElementById('tab-trace').addEventListener('click', () => {
+      activeTab = 'trace';
+      document.getElementById('tab-trace').className = "flex-1 py-2.5 text-center text-cyan-400 border-b-2 border-cyan-400 bg-slate-900/60";
+      document.getElementById('tab-orders').className = "flex-1 py-2.5 text-center text-slate-400 hover:text-slate-200 border-b-2 border-transparent";
+      renderTabContent();
+    });
+
+    // Initial load: Load cascade scenario and initial render
+    zones = JSON.parse(JSON.stringify(WORLD.scenarios["cascade"]));
+    render();
+  </script>
+</body>
+</html>

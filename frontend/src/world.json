@@ -1,0 +1,61 @@
+{
+  "nodes": {
+    "W1": {"name": "Kochi Central Warehouse", "lat": 9.9312, "lon": 76.2673, "type": "warehouse"},
+    "W2": {"name": "Thrissur Relief Depot", "lat": 10.5276, "lon": 76.2144, "type": "warehouse"},
+    "W3": {"name": "Kottayam Depot", "lat": 9.5916, "lon": 76.5222, "type": "warehouse"},
+    "J1": {"name": "Aluva", "lat": 10.1004, "lon": 76.3570, "type": "junction"},
+    "J2": {"name": "Angamaly", "lat": 10.1960, "lon": 76.3860, "type": "junction"},
+    "J3": {"name": "Cherthala", "lat": 9.6844, "lon": 76.3358, "type": "junction"},
+    "J4": {"name": "Alappuzha", "lat": 9.4981, "lon": 76.3388, "type": "junction"},
+    "J5": {"name": "Vaikom", "lat": 9.7490, "lon": 76.3960, "type": "junction"},
+    "J6": {"name": "Edappally", "lat": 10.0261, "lon": 76.3084, "type": "junction"},
+    "S1": {"name": "Kuttanad Relief Camp", "lat": 9.4000, "lon": 76.4000, "type": "shelter"},
+    "S2": {"name": "Chalakudy Camp", "lat": 10.3070, "lon": 76.3330, "type": "shelter"},
+    "S3": {"name": "North Paravur Camp", "lat": 10.1540, "lon": 76.2240, "type": "shelter"},
+    "S4": {"name": "Kumarakom Camp", "lat": 9.6170, "lon": 76.4290, "type": "shelter"}
+  },
+  "edges": [
+    {"a": "W1", "b": "J6", "road": "NH-66 Edappally"},
+    {"a": "J6", "b": "J1", "road": "NH-544 Aluva Rd"},
+    {"a": "J1", "b": "J2", "road": "NH-544 Angamaly"},
+    {"a": "J2", "b": "S2", "road": "NH-544 Chalakudy"},
+    {"a": "W2", "b": "S2", "road": "NH-544 Thrissur"},
+    {"a": "J6", "b": "S3", "road": "NH-66 Paravur"},
+    {"a": "S3", "b": "J2", "road": "SH-15 Paravur-Angamaly"},
+    {"a": "W1", "b": "J3", "road": "NH-66 South"},
+    {"a": "J3", "b": "J4", "road": "NH-66 Coastal"},
+    {"a": "J4", "b": "S1", "road": "Kuttanad Rd"},
+    {"a": "J3", "b": "J5", "road": "Cherthala-Vaikom Rd"},
+    {"a": "W1", "b": "J5", "road": "Vaikom Rd"},
+    {"a": "J5", "b": "S4", "road": "Vaikom-Kumarakom Rd"},
+    {"a": "W3", "b": "S4", "road": "MC Road"},
+    {"a": "W3", "b": "J5", "road": "Kottayam-Vaikom Rd"},
+    {"a": "W3", "b": "J4", "road": "AC Road"}
+  ],
+  "warehouses": {
+    "W1": {"stock": {"water": 600, "food": 500, "medicine": 120}},
+    "W2": {"stock": {"water": 400, "food": 400, "medicine": 60}},
+    "W3": {"stock": {"water": 300, "food": 350, "medicine": 80}}
+  },
+  "shelters": {
+    "S1": {"people": 1800, "priority": 5, "needs": {"water": 400, "food": 300, "medicine": 80}},
+    "S2": {"people": 1200, "priority": 3, "needs": {"water": 250, "food": 200, "medicine": 40}},
+    "S3": {"people": 900, "priority": 2, "needs": {"water": 180, "food": 150, "medicine": 30}},
+    "S4": {"people": 1500, "priority": 4, "needs": {"water": 300, "food": 250, "medicine": 60}}
+  },
+  "vehicles": [
+    {"id": "V1", "depot": "W1", "capacity": 400},
+    {"id": "V2", "depot": "W1", "capacity": 300},
+    {"id": "V3", "depot": "W2", "capacity": 350},
+    {"id": "V4", "depot": "W3", "capacity": 300},
+    {"id": "V5", "depot": "W3", "capacity": 250}
+  ],
+  "scenarios": {
+    "periyar-surge": [{"name": "Periyar surge (Aluva)", "lat": 10.1004, "lon": 76.357, "radius_km": 5}],
+    "kuttanad-flood": [{"name": "Kuttanad flooding", "lat": 9.59, "lon": 76.34, "radius_km": 6}],
+    "cascade": [
+      {"name": "Periyar surge (Aluva)", "lat": 10.1004, "lon": 76.357, "radius_km": 5},
+      {"name": "Kuttanad flooding", "lat": 9.59, "lon": 76.34, "radius_km": 6}
+    ]
+  }
+}

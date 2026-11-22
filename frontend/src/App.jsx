@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
 import { MapContainer, TileLayer, Polyline, Circle, CircleMarker, Tooltip, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+import { buildClientSnapshot, clientDispatch, WORLD } from "./sim";
 
 const api = (path, opts = {}) =>
-  fetch("/api" + path, { headers: { "Content-Type": "application/json" }, ...opts }).then((r) => r.json());
+  fetch("/api" + path, { headers: { "Content-Type": "application/json" }, ...opts }).then((r) => {
+    if (!r.ok) throw new Error("API error: " + r.statusText);
+    return r.json();
+  });
 
 const ROUTE_COLORS = ["#22d3ee", "#a78bfa", "#fbbf24", "#34d399", "#f472b6", "#60a5fa"];
 const NODE_STYLE = {
@@ -22,22 +26,83 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [floodMode, setFloodMode] = useState(false);
   const [run, setRun] = useState(null); // {mode, trace}
+  const [isBackendOnline, setIsBackendOnline] = useState(false);
 
-  useEffect(() => { api("/state").then(setS); }, []);
-  if (!s) return <div className="p-8 text-slate-300">Loading…</div>;
+  useEffect(() => {
+    api("/state")
+      .then((data) => {
+        setS(data);
+        setIsBackendOnline(true);
+      })
+      .catch(() => {
+        // Fallback to client-side simulation
+        setIsBackendOnline(false);
+        const initialZones = WORLD.scenarios["cascade"] || [];
+        setS(buildClientSnapshot(initialZones));
+      });
+  }, []);
 
-  const scenario = async (name) => { setRun(null); setS(await api(`/scenarios/${name}`, { method: "POST" })); };
-  const reset = async () => { setRun(null); setS(await api("/reset", { method: "POST" })); };
+  if (!s) return <div className="p-8 text-slate-300">Loading ReliefGrid...</div>;
+
+  const scenario = async (name) => {
+    setRun(null);
+    if (isBackendOnline) {
+      try {
+        setS(await api(`/scenarios/${name}`, { method: "POST" }));
+        return;
+      } catch (e) {
+        setIsBackendOnline(false);
+      }
+    }
+    const newZones = WORLD.scenarios[name] || [];
+    setS(buildClientSnapshot(newZones));
+  };
+
+  const reset = async () => {
+    setRun(null);
+    if (isBackendOnline) {
+      try {
+        setS(await api("/reset", { method: "POST" }));
+        return;
+      } catch (e) {
+        setIsBackendOnline(false);
+      }
+    }
+    setS(buildClientSnapshot([]));
+  };
+
   const addZone = async ({ lat, lng }) => {
     setFloodMode(false);
     setRun(null);
-    setS(await api("/zones", { method: "POST", body: JSON.stringify({ name: "New flood zone", lat, lon: lng, radius_km: 5 }) }));
+    if (isBackendOnline) {
+      try {
+        setS(await api("/zones", { method: "POST", body: JSON.stringify({ name: "New flood zone", lat, lon: lng, radius_km: 5 }) }));
+        return;
+      } catch (e) {
+        setIsBackendOnline(false);
+      }
+    }
+    const updatedZones = [...s.zones, { name: `Flood Zone #${s.zones.length + 1}`, lat, lon: lng, radius_km: 5 }];
+    setS(buildClientSnapshot(updatedZones, []));
   };
+
   const dispatch = async () => {
     setBusy(true);
-    const r = await api("/dispatch", { method: "POST" });
-    setRun({ mode: r.mode, trace: r.trace });
-    setS(r.state);
+    if (isBackendOnline) {
+      try {
+        const r = await api("/dispatch", { method: "POST" });
+        setRun({ mode: r.mode, trace: r.trace });
+        setS(r.state);
+        setBusy(false);
+        return;
+      } catch (e) {
+        setIsBackendOnline(false);
+      }
+    }
+    // Client-side dispatcher
+    const res = clientDispatch(s.zones);
+    setRun({ mode: res.mode, trace: res.trace });
+    setS(res.state);
     setBusy(false);
   };
 
@@ -51,8 +116,14 @@ export default function App() {
     <div className="flex h-full text-slate-200">
       <aside className="flex w-[26rem] flex-col gap-4 overflow-y-auto border-r border-slate-800 bg-slate-950 p-5">
         <div>
-          <h1 className="text-xl font-bold tracking-tight">ReliefGrid</h1>
-          <p className="text-sm text-slate-400">Flood relief logistics, replanned live around cut-off roads.</p>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold tracking-tight text-white">ReliefGrid</h1>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-400 border border-cyan-800 font-mono font-medium">
+              {isBackendOnline ? "LIVE API" : "STANDALONE"}
+            </span>
+          </div>
+          <p className="text-xs text-amber-400 font-medium mt-1">Track 2: Climate & Supply Resilience</p>
+          <p className="text-xs text-slate-400 mt-0.5">Flood relief logistics, replanned live around cut-off roads.</p>
         </div>
 
         <section className="grid grid-cols-4 gap-2 text-center">
@@ -66,15 +137,19 @@ export default function App() {
 
         <section className="flex flex-wrap gap-2">
           {s.scenarios.map((n) => (
-            <button key={n} onClick={() => scenario(n)} className="rounded-md bg-slate-800 px-3 py-1.5 text-sm hover:bg-slate-700">{n}</button>
+            <button key={n} onClick={() => scenario(n)} className="rounded-md bg-slate-800 px-3 py-1.5 text-xs hover:bg-slate-700 capitalize">
+              {n.replace("-", " ")}
+            </button>
           ))}
-          <button onClick={() => setFloodMode(!floodMode)} className={`rounded-md px-3 py-1.5 text-sm ${floodMode ? "bg-amber-500 text-black" : "bg-slate-800 hover:bg-slate-700"}`}>
+          <button onClick={() => setFloodMode(!floodMode)} className={`rounded-md px-3 py-1.5 text-xs font-semibold ${floodMode ? "bg-amber-500 text-black" : "bg-slate-800 hover:bg-slate-700"}`}>
             {floodMode ? "Click the map…" : "+ Add flood zone"}
           </button>
-          <button onClick={reset} className="rounded-md px-3 py-1.5 text-sm text-slate-400 hover:text-white">Reset</button>
+          <button onClick={reset} className="rounded-md px-3 py-1.5 text-xs text-slate-400 hover:text-white">
+            Reset
+          </button>
         </section>
 
-        <button onClick={dispatch} disabled={busy} className="rounded-lg bg-cyan-500 py-2.5 font-semibold text-black hover:bg-cyan-400 disabled:opacity-50">
+        <button onClick={dispatch} disabled={busy} className="rounded-lg bg-cyan-500 py-2.5 font-semibold text-black hover:bg-cyan-400 disabled:opacity-50 text-sm">
           {busy ? "Agent planning…" : "Plan & dispatch relief"}
         </button>
 
@@ -87,11 +162,11 @@ export default function App() {
                 <div className="flex justify-between font-medium">
                   <span>{o.vehicle}: {s.nodes[o.warehouse].name} → {s.nodes[o.shelter].name}</span>
                 </div>
-                <div className="text-slate-400">
+                <div className="text-slate-400 text-xs mt-1">
                   {Object.entries(o.items).map(([k, v]) => `${v} ${k}`).join(", ")} · {o.distance_km} km
                   {o.rerouted && <span className="ml-1 text-amber-400">· rerouted +{o.detour_km} km</span>}
                 </div>
-                {o.reason && <div className="mt-1 text-slate-300">{o.reason}</div>}
+                {o.reason && <div className="mt-1 text-xs text-slate-300 leading-relaxed">{o.reason}</div>}
               </div>
             ))}
           </div>
@@ -105,10 +180,10 @@ export default function App() {
             <div className="flex flex-col gap-1 text-xs text-slate-400">
               {run.trace.map((t, i) =>
                 t.type === "thought" ? (
-                  <p key={i} className="rounded bg-slate-900 p-2 text-slate-300">{t.text}</p>
+                  <p key={i} className="rounded bg-slate-900 p-2 text-slate-300 text-[11px] leading-relaxed">{t.text}</p>
                 ) : (
-                  <p key={i} className="font-mono">
-                    <span className="text-cyan-400">{t.name}</span>({JSON.stringify(t.input)}) → {t.output.ok === false ? <span className="text-red-400">{t.output.error}</span> : "ok"}
+                  <p key={i} className="font-mono text-[10px] truncate">
+                    <span className="text-cyan-400">{t.name}</span>({JSON.stringify(t.input)}) → {t.output?.ok === false ? <span className="text-red-400">{t.output.error}</span> : "ok"}
                   </p>
                 )
               )}

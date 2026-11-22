@@ -76,7 +76,7 @@ def run_gemini(S):
     """Same agent loop on Gemini (free tier). Tools are plain Python functions; the SDK calls them."""
     from google import genai
     from google.genai import types
-    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"], http_options={"api_version": "v1beta"})
     trace = []
 
     def _log(name, args, out):
@@ -100,16 +100,15 @@ def run_gemini(S):
         out = S.assign(vehicle_id, warehouse_id, shelter_id, items, reason)
         return _log("assign_vehicle", {"vehicle_id": vehicle_id, "shelter_id": shelter_id, "items": items}, out)
 
-    resp = client.models.generate_content(
+    chat = client.chats.create(
         model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
-        contents="Current situation (JSON):\n" + situation(S) + "\nPlan and dispatch relief now.",
         config=types.GenerateContentConfig(
             system_instruction=SYSTEM,
             tools=[check_inventory, get_safe_route, assign_vehicle],
             temperature=0.2,
-            automatic_function_calling=types.AutomaticFunctionCallingConfig(maximum_remote_calls=40),
         ),
     )
+    resp = chat.send_message("Current situation (JSON):\n" + situation(S) + "\nPlan and dispatch relief now.")
     if resp.text:
         trace.append({"type": "thought", "text": resp.text.strip()})
     return trace
