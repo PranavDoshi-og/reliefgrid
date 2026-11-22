@@ -26,6 +26,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [floodMode, setFloodMode] = useState(false);
   const [run, setRun] = useState(null); // {mode, trace}
+  const [isBackendOnline, setIsBackendOnline] = useState(false);
   const [mapStyle, setMapStyle] = useState("dark"); // "dark" | "osm" | "satellite"
 
   const BASEMAPS = {
