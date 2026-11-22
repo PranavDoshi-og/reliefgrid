@@ -1,4 +1,18 @@
 @import "tailwindcss";
 html, body, #root { height: 100%; margin: 0; }
 body { font-family: ui-sans-serif, system-ui, sans-serif; }
-.leaflet-container { background: #0b1120; }
+.leaflet-container { background: #0b1120; font-family: inherit; }
+
+/* Custom Sleek Dark Leaflet Tooltips */
+.leaflet-tooltip {
+  background-color: rgba(15, 23, 42, 0.92) !important;
+  color: #f1f5f9 !important;
+  border: 1px solid #334155 !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  padding: 3px 8px !important;
+  border-radius: 6px !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6) !important;
+}
+.leaflet-tooltip-top:before { border-top-color: #334155 !important; }
+.leaflet-tooltip-bottom:before { border-bottom-color: #334155 !important; }

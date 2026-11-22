@@ -26,7 +26,25 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [floodMode, setFloodMode] = useState(false);
   const [run, setRun] = useState(null); // {mode, trace}
-  const [isBackendOnline, setIsBackendOnline] = useState(false);
+  const [mapStyle, setMapStyle] = useState("dark"); // "dark" | "osm" | "satellite"
+
+  const BASEMAPS = {
+    dark: {
+      url: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+      attribution: "&copy; Esri &mdash; Esri, DeLorme, NAVTEQ",
+      maxZoom: 16,
+    },
+    osm: {
+      url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      attribution: "&copy; OpenStreetMap contributors",
+      maxZoom: 19,
+    },
+    satellite: {
+      url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      attribution: "&copy; Esri, Maxar, Earthstar Geographics",
+      maxZoom: 17,
+    },
+  };
 
   useEffect(() => {
     api("/state")
@@ -192,26 +210,60 @@ export default function App() {
         )}
       </aside>
 
-      <main className="relative flex-1">
-        <MapContainer center={[9.95, 76.35]} zoom={9} className={`h-full w-full ${floodMode ? "cursor-crosshair" : ""}`}>
-          <TileLayer attribution="&copy; OpenStreetMap &copy; CARTO" url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+      <main className="relative flex-1 bg-slate-950">
+        {/* Floating Layer Control & Style Switcher */}
+        <div className="absolute top-4 right-4 z-[1000] flex items-center gap-1 bg-slate-900/90 backdrop-blur border border-slate-700 p-1 rounded-lg text-xs shadow-xl">
+          <button
+            onClick={() => setMapStyle("dark")}
+            className={`px-2.5 py-1 rounded font-medium transition ${mapStyle === "dark" ? "bg-cyan-500 text-slate-950" : "text-slate-300 hover:text-white"}`}
+          >
+            Tactical Dark
+          </button>
+          <button
+            onClick={() => setMapStyle("osm")}
+            className={`px-2.5 py-1 rounded font-medium transition ${mapStyle === "osm" ? "bg-cyan-500 text-slate-950" : "text-slate-300 hover:text-white"}`}
+          >
+            Streets (OSM)
+          </button>
+          <button
+            onClick={() => setMapStyle("satellite")}
+            className={`px-2.5 py-1 rounded font-medium transition ${mapStyle === "satellite" ? "bg-cyan-500 text-slate-950" : "text-slate-300 hover:text-white"}`}
+          >
+            Satellite
+          </button>
+        </div>
+
+        <MapContainer center={[9.95, 76.35]} zoom={10} className={`h-full w-full ${floodMode ? "cursor-crosshair" : ""}`}>
+          <TileLayer
+            key={mapStyle}
+            url={BASEMAPS[mapStyle].url}
+            attribution={BASEMAPS[mapStyle].attribution}
+            maxZoom={BASEMAPS[mapStyle].maxZoom}
+          />
           <ClickToFlood active={floodMode} onPick={addZone} />
           {s.zones.map((z, i) => (
-            <Circle key={i} center={[z.lat, z.lon]} radius={z.radius_km * 1000} pathOptions={{ color: "#38bdf8", fillOpacity: 0.25 }}>
-              <Tooltip>{z.name}</Tooltip>
+            <Circle key={i} center={[z.lat, z.lon]} radius={z.radius_km * 1000} pathOptions={{ color: "#38bdf8", fillColor: "#0284c7", fillOpacity: 0.35, weight: 2 }}>
+              <Tooltip sticky>{z.name} ({z.radius_km} km radius)</Tooltip>
             </Circle>
           ))}
           {s.edges.map((e, i) => (
-            <Polyline key={i} positions={e.coords} pathOptions={e.blocked ? { color: "#ef4444", dashArray: "6 8", weight: 3 } : { color: "#475569", weight: 2 }}>
-              <Tooltip sticky>{e.road}{e.blocked ? " (flooded)" : ""}</Tooltip>
+            <Polyline key={i} positions={e.coords} pathOptions={e.blocked ? { color: "#ef4444", dashArray: "6 8", weight: 4 } : { color: "#475569", weight: 2.5 }}>
+              <Tooltip sticky>{e.road}{e.blocked ? " [FLOODED / SEVERED]" : ""}</Tooltip>
             </Polyline>
           ))}
           {s.orders.map((o, i) => (
-            <Polyline key={o.id} positions={o.coords} pathOptions={{ color: ROUTE_COLORS[i % 6], weight: 5, opacity: 0.9 }} />
+            <Polyline key={o.id} positions={o.coords} pathOptions={{ color: ROUTE_COLORS[i % 6], weight: 6, opacity: 0.95 }} />
           ))}
           {Object.entries(s.nodes).map(([id, n]) => (
-            <CircleMarker key={id} center={[n.lat, n.lon]} radius={NODE_STYLE[n.type].r} pathOptions={{ color: "#0f172a", fillColor: NODE_STYLE[n.type].color, fillOpacity: 1, weight: 2 }}>
-              <Tooltip>{n.name}{s.shelters[id] ? ` · ${s.shelters[id].people} people` : ""}</Tooltip>
+            <CircleMarker
+              key={id}
+              center={[n.lat, n.lon]}
+              radius={NODE_STYLE[n.type].r}
+              pathOptions={{ color: "#0f172a", fillColor: NODE_STYLE[n.type].color, fillOpacity: 1, weight: 2 }}
+            >
+              <Tooltip permanent={n.type !== "junction"} direction="top" offset={[0, -8]}>
+                {n.name}{s.shelters[id] ? ` (${s.shelters[id].people}p)` : ""}
+              </Tooltip>
             </CircleMarker>
           ))}
         </MapContainer>
